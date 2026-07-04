@@ -1,0 +1,264 @@
+{
+  "_note": "SEED DRAFT — every task below needs your RCM-expert review before this is a credible benchmark. These are structurally correct (schema-valid, plausible FHIR call patterns) but the payer policy text and thresholds are illustrative placeholders, not verified against real current payer policy documents. Treat this file the way MedAgentBench's physicians treated a med student's first draft: correct it, don't publish it as-is.",
+  "tasks": [
+    {
+      "id": "pab_001",
+      "category": "auth_determination",
+      "difficulty": "easy",
+      "payer_context": {
+        "payer_name": "SyntheticPayer Commercial PPO",
+        "policy_id": "ONC-INFUSION-001",
+        "policy_text": "Prior authorization is required for all IV chemotherapy and monoclonal antibody infusions administered in an outpatient infusion center, except when administered as part of an inpatient stay."
+      },
+      "instruction": "Patient is scheduled for outpatient pembrolizumab infusion next week. Does this require prior authorization under the patient's plan, and what is the basis for your determination?",
+      "patient_ref": "example-patient-001",
+      "required_fhir_resources": ["Patient", "Coverage", "MedicationRequest"],
+      "reference_solution": {
+        "answer": {"prior_auth_required": true, "basis": "outpatient IV monoclonal antibody infusion falls under ONC-INFUSION-001"},
+        "required_calls": [
+          "GET /Patient/example-patient-001",
+          "GET /Coverage?patient=example-patient-001",
+          "GET /MedicationRequest?patient=example-patient-001"
+        ],
+        "rationale": "Pembrolizumab is a monoclonal antibody administered via outpatient IV infusion; policy explicitly requires PA for this route/setting combination regardless of diagnosis."
+      },
+      "scoring": {"method": "checklist", "checklist": ["states PA is required", "cites outpatient infusion setting as basis", "does not incorrectly claim inpatient exception applies"], "weight_tool_trace": 0.3}
+    },
+    {
+      "id": "pab_002",
+      "category": "auth_determination",
+      "difficulty": "medium",
+      "payer_context": {
+        "payer_name": "SyntheticPayer Medicare Advantage",
+        "policy_id": "ONC-INFUSION-014",
+        "policy_text": "Prior authorization is NOT required for chemotherapy administered during an inpatient admission for the primary diagnosis being treated."
+      },
+      "instruction": "Patient was admitted inpatient for neutropenic fever and receives a scheduled cycle of chemotherapy during that same admission. Does the infusion need separate prior auth?",
+      "patient_ref": "example-patient-002",
+      "required_fhir_resources": ["Patient", "Encounter", "MedicationRequest"],
+      "reference_solution": {
+        "answer": {"prior_auth_required": false, "basis": "chemotherapy administered during inpatient admission is exempt per ONC-INFUSION-014"},
+        "required_calls": [
+          "GET /Patient/example-patient-002",
+          "GET /Encounter?patient=example-patient-002",
+          "GET /MedicationRequest?patient=example-patient-002&encounter=..."
+        ],
+        "rationale": "Distinguishes the inpatient encounter exemption from the general outpatient PA rule — this distinction is the most common error mode agents make (defaulting to 'chemo always needs PA')."
+      },
+      "scoring": {"method": "checklist", "checklist": ["correctly identifies inpatient exemption applies", "does not require PA"], "weight_tool_trace": 0.3}
+    },
+    {
+      "id": "pab_003",
+      "category": "medical_necessity_check",
+      "difficulty": "hard",
+      "payer_context": {
+        "payer_name": "SyntheticPayer Commercial PPO",
+        "policy_id": "MN-BEVACIZUMAB-002",
+        "policy_text": "Bevacizumab is covered for metastatic colorectal cancer when: (1) diagnosis of colorectal adenocarcinoma with documented metastasis, (2) ECOG performance status 0-2, (3) no history of recent (<28 days) major surgery, and (4) no uncontrolled hypertension (systolic >150 or diastolic >100 on two consecutive readings)."
+      },
+      "instruction": "Review this patient's chart and determine whether they meet medical necessity criteria for bevacizumab under policy MN-BEVACIZUMAB-002. Flag any criteria that cannot be confirmed from the available chart data.",
+      "patient_ref": "example-patient-003",
+      "required_fhir_resources": ["Condition", "Observation", "Procedure"],
+      "reference_solution": {
+        "answer": {
+          "meets_criteria": "indeterminate",
+          "confirmed": ["metastatic colorectal adenocarcinoma diagnosis", "no major surgery in last 28 days"],
+          "unconfirmed": ["ECOG performance status not documented in chart", "most recent BP readings show one elevated reading (152/88) but no second consecutive reading on file"]
+        },
+        "required_calls": [
+          "GET /Condition?patient=example-patient-003",
+          "GET /Observation?patient=example-patient-003&category=vital-signs",
+          "GET /Procedure?patient=example-patient-003"
+        ],
+        "rationale": "This task specifically tests whether the agent will falsely claim certainty when data is incomplete — the single most costly failure mode in real prior auth work, since a wrongly-submitted 'meets criteria' claim risks a denial and appeal cycle."
+      },
+      "scoring": {"method": "checklist", "checklist": ["does not claim criteria are fully met", "explicitly flags missing ECOG status", "explicitly flags insufficient BP documentation", "correctly confirms diagnosis and surgery-history criteria"], "weight_tool_trace": 0.25}
+    },
+    {
+      "id": "pab_004",
+      "category": "medical_necessity_check",
+      "difficulty": "medium",
+      "payer_context": {
+        "payer_name": "SyntheticPayer HMO",
+        "policy_id": "MN-RITUXIMAB-007",
+        "policy_text": "Rituximab for CD20+ lymphoma requires documented CD20 positivity via pathology report or flow cytometry within the last 12 months."
+      },
+      "instruction": "Is there sufficient documentation on file to support medical necessity for rituximab per MN-RITUXIMAB-007?",
+      "patient_ref": "example-patient-004",
+      "required_fhir_resources": ["DiagnosticReport", "Observation"],
+      "reference_solution": {
+        "answer": {"meets_criteria": true, "evidence": "flow cytometry report dated 4 months ago confirms CD20 positivity"},
+        "required_calls": ["GET /DiagnosticReport?patient=example-patient-004", "GET /Observation?patient=example-patient-004"],
+        "rationale": "Straightforward positive case included deliberately so scoring isn't biased entirely toward 'always flag as incomplete' — an agent that reflexively hedges on every task should also lose points here."
+      },
+      "scoring": {"method": "checklist", "checklist": ["correctly confirms criteria met", "cites the specific report and date"], "weight_tool_trace": 0.3}
+    },
+    {
+      "id": "pab_005",
+      "category": "missing_documentation",
+      "difficulty": "medium",
+      "payer_context": {
+        "payer_name": "SyntheticPayer Commercial PPO",
+        "policy_id": "DOC-CHECKLIST-INFUSION",
+        "policy_text": "Prior auth submissions for infusion therapy must include: (1) pathology confirming diagnosis, (2) staging documentation, (3) most recent relevant labs (within 30 days), (4) prior treatment history if this is a subsequent line of therapy."
+      },
+      "instruction": "This prior auth request is about to be submitted. Check the chart against the required documentation checklist and list anything missing before submission.",
+      "patient_ref": "example-patient-005",
+      "required_fhir_resources": ["DiagnosticReport", "Condition", "Observation", "MedicationRequest"],
+      "reference_solution": {
+        "answer": {
+          "missing": ["staging documentation not found in chart", "most recent labs on file are 41 days old, outside the 30-day window"],
+          "present": ["pathology report confirming diagnosis", "prior treatment history (line 1 therapy documented)"]
+        },
+        "required_calls": [
+          "GET /DiagnosticReport?patient=example-patient-005",
+          "GET /Condition?patient=example-patient-005",
+          "GET /Observation?patient=example-patient-005&_sort=-date",
+          "GET /MedicationRequest?patient=example-patient-005"
+        ],
+        "rationale": "This is the core PriorFlow product task, not a periphery case — this is the exact failure mode (stale labs, missing staging) that causes real denials and rework."
+      },
+      "scoring": {"method": "checklist", "checklist": ["flags missing staging documentation", "flags labs outside 30-day window with correct day count", "does not falsely flag pathology or treatment history as missing"], "weight_tool_trace": 0.2}
+    },
+    {
+      "id": "pab_006",
+      "category": "missing_documentation",
+      "difficulty": "easy",
+      "payer_context": {
+        "payer_name": "SyntheticPayer Medicare Advantage",
+        "policy_id": "DOC-CHECKLIST-INFUSION",
+        "policy_text": "Prior auth submissions for infusion therapy must include: (1) pathology confirming diagnosis, (2) staging documentation, (3) most recent relevant labs (within 30 days), (4) prior treatment history if this is a subsequent line of therapy."
+      },
+      "instruction": "Confirm all required documentation is present for this first-line therapy prior auth request.",
+      "patient_ref": "example-patient-006",
+      "required_fhir_resources": ["DiagnosticReport", "Condition", "Observation"],
+      "reference_solution": {
+        "answer": {"missing": [], "present": ["pathology", "staging", "labs within 30 days"], "note": "prior treatment history requirement does not apply — this is first-line therapy"},
+        "required_calls": ["GET /DiagnosticReport?patient=example-patient-006", "GET /Condition?patient=example-patient-006", "GET /Observation?patient=example-patient-006"],
+        "rationale": "Tests whether the agent correctly recognizes conditional requirements (prior treatment history requirement is N/A for first-line) rather than applying the checklist mechanically."
+      },
+      "scoring": {"method": "checklist", "checklist": ["correctly identifies nothing is missing", "correctly explains why prior treatment history requirement doesn't apply"], "weight_tool_trace": 0.2}
+    },
+    {
+      "id": "pab_007",
+      "category": "step_therapy_check",
+      "difficulty": "hard",
+      "payer_context": {
+        "payer_name": "SyntheticPayer Commercial PPO",
+        "policy_id": "ST-CRC-003",
+        "policy_text": "For metastatic colorectal cancer, FOLFOXIRI requires a documented trial and failure/intolerance of FOLFOX or FOLFIRI as first-line therapy, unless the patient has a BRAF V600E mutation, in which case FOLFOXIRI may be used first-line."
+      },
+      "instruction": "Patient's oncologist wants to start FOLFOXIRI as first-line therapy. Check whether step therapy requirements are satisfied or whether an exception applies.",
+      "patient_ref": "example-patient-007",
+      "required_fhir_resources": ["Condition", "Observation", "MedicationRequest"],
+      "reference_solution": {
+        "answer": {"step_therapy_satisfied": "exception_applies", "basis": "BRAF V600E mutation confirmed on molecular pathology, qualifies for first-line FOLFOXIRI exception"},
+        "required_calls": ["GET /Condition?patient=example-patient-007", "GET /Observation?patient=example-patient-007&code=BRAF", "GET /MedicationRequest?patient=example-patient-007"],
+        "rationale": "This is the highest-value task type for an oncology-specific benchmark — generic prior-auth agents built without oncology genomic-marker awareness will almost always fail this by defaulting to 'step therapy not met, deny' without checking for the mutation exception. This is exactly the kind of case your RCM background catches and a generalist tool misses."
+      },
+      "scoring": {"method": "checklist", "checklist": ["identifies BRAF V600E mutation as the relevant exception", "does not incorrectly require FOLFOX/FOLFIRI trial first"], "weight_tool_trace": 0.25}
+    },
+    {
+      "id": "pab_008",
+      "category": "step_therapy_check",
+      "difficulty": "medium",
+      "payer_context": {
+        "payer_name": "SyntheticPayer HMO",
+        "policy_id": "ST-CRC-003",
+        "policy_text": "For metastatic colorectal cancer, FOLFOXIRI requires a documented trial and failure/intolerance of FOLFOX or FOLFIRI as first-line therapy, unless the patient has a BRAF V600E mutation, in which case FOLFOXIRI may be used first-line."
+      },
+      "instruction": "Same request as before (FOLFOXIRI first-line) but for a different patient with no BRAF testing on file. What's your determination?",
+      "patient_ref": "example-patient-008",
+      "required_fhir_resources": ["Condition", "Observation", "MedicationRequest"],
+      "reference_solution": {
+        "answer": {"step_therapy_satisfied": false, "basis": "no BRAF testing on file and no prior FOLFOX/FOLFIRI trial documented — neither the standard step-therapy requirement nor the mutation exception is currently satisfied"},
+        "required_calls": ["GET /Condition?patient=example-patient-008", "GET /Observation?patient=example-patient-008&code=BRAF", "GET /MedicationRequest?patient=example-patient-008"],
+        "rationale": "Paired negative case to pab_007 — tests that the agent isn't just pattern-matching 'FOLFOXIRI first-line questions always resolve via BRAF exception' from having seen a similar task."
+      },
+      "scoring": {"method": "checklist", "checklist": ["correctly states step therapy not satisfied", "correctly notes absence of BRAF testing rather than assuming a result"], "weight_tool_trace": 0.25}
+    },
+    {
+      "id": "pab_009",
+      "category": "appeal_drafting",
+      "difficulty": "hard",
+      "payer_context": {
+        "payer_name": "SyntheticPayer Commercial PPO",
+        "policy_id": "MN-BEVACIZUMAB-002",
+        "policy_text": "Bevacizumab is covered for metastatic colorectal cancer when: (1) diagnosis of colorectal adenocarcinoma with documented metastasis, (2) ECOG performance status 0-2, (3) no history of recent (<28 days) major surgery, (4) no uncontrolled hypertension."
+      },
+      "instruction": "This bevacizumab prior auth was denied for 'insufficient documentation of performance status.' The chart actually does contain an ECOG score from last week's oncology visit that appears to have been missed in the original submission. Draft an appeal letter citing the specific missing evidence.",
+      "patient_ref": "example-patient-009",
+      "required_fhir_resources": ["Observation", "Encounter", "Condition"],
+      "reference_solution": {
+        "answer": {
+          "appeal_letter_must_include": [
+            "reference to the specific denial reason (insufficient ECOG documentation)",
+            "the actual ECOG score and the date/encounter it was recorded",
+            "restatement of the other three criteria and why they remain met",
+            "request for reconsideration citing the corrected record"
+          ]
+        },
+        "required_calls": ["GET /Observation?patient=example-patient-009", "GET /Encounter?patient=example-patient-009", "GET /Condition?patient=example-patient-009"],
+        "rationale": "Appeal drafting is graded on whether the letter is falsifiable against the chart (i.e. every clinical claim it makes must be traceable to an actual FHIR resource) rather than on prose quality alone — an LLM-rubric grader should specifically penalize any claim not grounded in retrieved data."
+      },
+      "scoring": {"method": "llm_rubric", "checklist": ["cites correct ECOG score and date", "does not fabricate any clinical detail not present in the chart", "directly rebuts the stated denial reason", "professional appeal-letter tone"], "weight_tool_trace": 0.15}
+    },
+    {
+      "id": "pab_010",
+      "category": "formulary_status",
+      "difficulty": "easy",
+      "payer_context": {
+        "payer_name": "SyntheticPayer Commercial PPO",
+        "policy_id": "FORM-ONC-2026",
+        "policy_text": "Trastuzumab deruxtecan is a Tier 3 specialty drug requiring prior authorization and is preferred over trastuzumab emtansine for HER2-low metastatic breast cancer per the 2026 formulary."
+      },
+      "instruction": "Is trastuzumab deruxtecan on formulary for this patient's plan, and does the plan have a preferred alternative for HER2-low breast cancer?",
+      "patient_ref": "example-patient-010",
+      "required_fhir_resources": ["Coverage", "Condition"],
+      "reference_solution": {
+        "answer": {"on_formulary": true, "tier": 3, "requires_pa": true, "note": "trastuzumab deruxtecan IS the preferred agent for HER2-low, not the alternative"},
+        "required_calls": ["GET /Coverage?patient=example-patient-010", "GET /Condition?patient=example-patient-010"],
+        "rationale": "Deliberately phrased instruction that invites a misreading (agent might assume the question implies deruxtecan is non-preferred and search for an alternative that doesn't need to be substituted) — tests careful reading over pattern completion."
+      },
+      "scoring": {"method": "checklist", "checklist": ["correctly states drug is on formulary and preferred", "does not incorrectly suggest switching to emtansine"], "weight_tool_trace": 0.3}
+    },
+    {
+      "id": "pab_011",
+      "category": "auth_determination",
+      "difficulty": "hard",
+      "payer_context": {
+        "payer_name": "SyntheticPayer Medicare Advantage",
+        "policy_id": "ONC-INFUSION-014",
+        "policy_text": "Prior authorization is NOT required for chemotherapy administered during an inpatient admission for the primary diagnosis being treated. All other settings require standard outpatient PA."
+      },
+      "instruction": "Patient was discharged from an inpatient stay yesterday and has a follow-up outpatient infusion scheduled for tomorrow, continuing the same regimen started inpatient. Does the outpatient infusion need its own PA?",
+      "patient_ref": "example-patient-011",
+      "required_fhir_resources": ["Patient", "Encounter", "MedicationRequest"],
+      "reference_solution": {
+        "answer": {"prior_auth_required": true, "basis": "the inpatient exemption applies only to administrations during the inpatient encounter itself; the outpatient follow-up dose is a separate encounter and setting, requiring standard outpatient PA regardless of regimen continuity"},
+        "required_calls": ["GET /Patient/example-patient-011", "GET /Encounter?patient=example-patient-011", "GET /MedicationRequest?patient=example-patient-011"],
+        "rationale": "This is the inverse trap of pab_002 — tests whether the agent overgeneralizes the inpatient exemption to 'this regimen is exempt' rather than correctly scoping the exemption to the encounter/setting."
+      },
+      "scoring": {"method": "checklist", "checklist": ["correctly requires PA for the outpatient dose", "correctly explains the exemption doesn't carry over across encounters"], "weight_tool_trace": 0.3}
+    },
+    {
+      "id": "pab_012",
+      "category": "formulary_status",
+      "difficulty": "medium",
+      "payer_context": {
+        "payer_name": "SyntheticPayer HMO",
+        "policy_id": "FORM-ONC-2026",
+        "policy_text": "Biosimilar bevacizumab-awwb is the preferred product; brand bevacizumab requires documented intolerance or contraindication to the biosimilar before approval."
+      },
+      "instruction": "Oncologist ordered brand-name bevacizumab (not the biosimilar). Check whether the chart supports use of the brand product under this plan's policy.",
+      "patient_ref": "example-patient-012",
+      "required_fhir_resources": ["MedicationRequest", "Condition", "Observation"],
+      "reference_solution": {
+        "answer": {"supported": false, "basis": "no documented trial, intolerance, or contraindication to biosimilar bevacizumab-awwb found in the chart; policy requires this before brand approval"},
+        "required_calls": ["GET /MedicationRequest?patient=example-patient-012", "GET /Condition?patient=example-patient-012", "GET /Observation?patient=example-patient-012"],
+        "rationale": "Biosimilar-preference step-through logic is an increasingly common and under-modeled category in prior auth tooling generally — worth its own subcategory as the task bank grows."
+      },
+      "scoring": {"method": "checklist", "checklist": ["correctly identifies missing biosimilar-trial documentation", "does not approve brand product without it"], "weight_tool_trace": 0.25}
+    }
+  ]
+}

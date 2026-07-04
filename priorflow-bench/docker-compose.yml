@@ -1,0 +1,33 @@
+version: "3.8"
+
+# This stands up the "virtual EHR" — the same role the FHIR server plays in
+# MedAgentBench. hapi-fhir-jpaserver is the standard open-source reference
+# FHIR server; it's what most FHIR benchmarking / sandbox work in the
+# industry uses when a real EHR sandbox (e.g. Epic's own sandbox) isn't
+# available or isn't flexible enough for synthetic bulk loads.
+
+services:
+  fhir-server:
+    image: hapiproject/hapi:v7.2.0
+    container_name: priorflow-bench-fhir
+    ports:
+      - "8080:8080"
+    environment:
+      hapi.fhir.default_encoding: json
+      hapi.fhir.fhir_version: R4
+      hapi.fhir.allow_multiple_delete: "true"
+      hapi.fhir.reuse_cached_search_results_millis: "-1"
+      # keep the sandbox permissive — this is a synthetic-data-only
+      # research sandbox, never point this compose file at anything
+      # containing real PHI
+      hapi.fhir.cors.allowed_origin: "*"
+    volumes:
+      - fhir-data:/data/hapi
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/fhir/metadata"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  fhir-data:

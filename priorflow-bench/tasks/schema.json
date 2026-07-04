@@ -1,0 +1,90 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PriorFlowBenchTask",
+  "type": "object",
+  "required": [
+    "id", "category", "difficulty", "instruction",
+    "patient_ref", "reference_solution", "scoring"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^pab_[0-9]{3}$",
+      "description": "Unique task id, e.g. pab_001"
+    },
+    "category": {
+      "type": "string",
+      "enum": [
+        "auth_determination",
+        "medical_necessity_check",
+        "missing_documentation",
+        "step_therapy_check",
+        "appeal_drafting",
+        "formulary_status"
+      ]
+    },
+    "difficulty": {
+      "type": "string",
+      "enum": ["easy", "medium", "hard"]
+    },
+    "payer_context": {
+      "type": "object",
+      "description": "Synthetic payer policy snippet the task is graded against.",
+      "properties": {
+        "payer_name": {"type": "string"},
+        "policy_id": {"type": "string"},
+        "policy_text": {"type": "string"}
+      }
+    },
+    "instruction": {
+      "type": "string",
+      "description": "Natural-language instruction given to the agent, written the way an RCM analyst would phrase a real work item."
+    },
+    "patient_ref": {
+      "type": "string",
+      "description": "FHIR Patient resource id in the loaded synthetic dataset the task operates against."
+    },
+    "required_fhir_resources": {
+      "type": "array",
+      "items": {"type": "string"},
+      "description": "FHIR resource types the agent is expected to query to answer correctly (e.g. Condition, MedicationRequest, Observation). Used for the tool-call-match component of scoring."
+    },
+    "reference_solution": {
+      "type": "object",
+      "required": ["answer"],
+      "properties": {
+        "answer": {
+          "description": "Ground-truth structured answer. Shape depends on category (see tasks/categories.md)."
+        },
+        "required_calls": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Minimum FHIR REST calls (method + path pattern) a correct agent trajectory must include."
+        },
+        "rationale": {
+          "type": "string",
+          "description": "Domain-expert rationale for the answer -- this is the part a physician/RCM analyst actually authored."
+        }
+      }
+    },
+    "scoring": {
+      "type": "object",
+      "required": ["method"],
+      "properties": {
+        "method": {
+          "type": "string",
+          "enum": ["exact_match", "checklist", "llm_rubric"]
+        },
+        "checklist": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "weight_tool_trace": {
+          "type": "number",
+          "default": 0.3,
+          "description": "Fraction of task score coming from correct FHIR call trace vs. final answer correctness."
+        }
+      }
+    }
+  }
+}
