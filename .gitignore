@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Generated FHIR bundles -- derived from synthetic_data/patient_specs.py and
+# time-relative (see generate_bundles.py); regenerate via
+# scripts/load_task_bank_patients.sh instead of committing stale dates.
+priorflow-bench/synthetic_data/bundles/
+
+priorflow-bench/eval_results/*.json

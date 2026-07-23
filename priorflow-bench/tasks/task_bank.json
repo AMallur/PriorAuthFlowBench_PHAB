@@ -259,6 +259,196 @@
         "rationale": "Biosimilar-preference step-through logic is an increasingly common and under-modeled category in prior auth tooling generally — worth its own subcategory as the task bank grows."
       },
       "scoring": {"method": "checklist", "checklist": ["correctly identifies missing biosimilar-trial documentation", "does not approve brand product without it"], "weight_tool_trace": 0.25}
+    },
+    {
+      "id": "pab_013",
+      "category": "genomic_biomarker_necessity",
+      "difficulty": "medium",
+      "payer_context": {
+        "payer_name": "SyntheticPayer Commercial PPO",
+        "policy_id": "MN-TRK-FUSION-001",
+        "policy_text": "Larotrectinib is covered for solid tumors when NGS or FISH confirms an NTRK1/2/3 gene fusion, with no documented acquired TRK-domain resistance mutation, and no satisfactory alternative therapy exists."
+      },
+      "instruction": "Patient has a rare sarcoma with no approved standard therapy remaining. Molecular pathology report is on file. Does the patient meet medical necessity criteria for larotrectinib under MN-TRK-FUSION-001?",
+      "patient_ref": "example-patient-013",
+      "required_fhir_resources": ["DiagnosticReport", "Observation", "Condition"],
+      "reference_solution": {
+        "answer": {"meets_criteria": true, "basis": "NGS confirms an NTRK3 gene fusion, no acquired TRK-domain resistance mutation is documented, and no remaining standard therapy exists"},
+        "required_calls": ["GET /DiagnosticReport?patient=example-patient-013", "GET /Observation?patient=example-patient-013", "GET /Condition?patient=example-patient-013"],
+        "rationale": "Tests that the agent recognizes a genuine NTRK fusion (the oncogenic driver FDA's basket trials — LOXO-TRK-14001/SCOUT/NAVIGATE — actually selected for) rather than any 'NTRK abnormality' as satisfying this tissue-agnostic criterion."
+      },
+      "scoring": {"method": "checklist", "checklist": ["correctly confirms criteria met", "specifically identifies the finding as a fusion, not a point mutation", "confirms no resistance mutation is documented"], "weight_tool_trace": 0.25}
+    },
+    {
+      "id": "pab_014",
+      "category": "genomic_biomarker_necessity",
+      "difficulty": "hard",
+      "payer_context": {
+        "payer_name": "SyntheticPayer Commercial PPO",
+        "policy_id": "MN-TRK-FUSION-001",
+        "policy_text": "Larotrectinib is covered for solid tumors when NGS or FISH confirms an NTRK1/2/3 gene fusion, with no documented acquired TRK-domain resistance mutation, and no satisfactory alternative therapy exists."
+      },
+      "instruction": "Patient's molecular report shows an NTRK1 missense point mutation (no fusion transcript detected). Oncologist is requesting larotrectinib. Does the chart support medical necessity under MN-TRK-FUSION-001?",
+      "patient_ref": "example-patient-014",
+      "required_fhir_resources": ["DiagnosticReport", "Observation", "Condition"],
+      "reference_solution": {
+        "answer": {"meets_criteria": false, "basis": "the report documents an NTRK1 point mutation, not a gene fusion; the approved indication requires a fusion transcript, which is absent here"},
+        "required_calls": ["GET /DiagnosticReport?patient=example-patient-014", "GET /Observation?patient=example-patient-014", "GET /Condition?patient=example-patient-014"],
+        "rationale": "Paired negative to pab_013 — tests whether the agent conflates any NTRK-gene finding with the specific fusion biomarker the label requires; this exact confusion (mutation vs. fusion) is the most common real-world authorization error for this drug class."
+      },
+      "scoring": {"method": "checklist", "checklist": ["correctly denies criteria are met", "explicitly distinguishes a point mutation from a fusion", "does not approve based on the gene name alone"], "weight_tool_trace": 0.25}
+    },
+    {
+      "id": "pab_015",
+      "category": "genomic_biomarker_necessity",
+      "difficulty": "medium",
+      "payer_context": {
+        "payer_name": "SyntheticPayer Medicare Advantage",
+        "policy_id": "MN-MSIH-PEMBRO-004",
+        "policy_text": "Pembrolizumab is covered for unresectable or metastatic solid tumors when MSI-High status (by PCR/NGS) or dMMR status (by IHC loss of MLH1/MSH2/MSH6/PMS2) is documented, following progression on prior therapy with no satisfactory alternative."
+      },
+      "instruction": "Patient has metastatic endometrial cancer that progressed after first-line chemotherapy. Chart includes an IHC report. Does the patient meet criteria for pembrolizumab under MN-MSIH-PEMBRO-004?",
+      "patient_ref": "example-patient-015",
+      "required_fhir_resources": ["DiagnosticReport", "Condition", "MedicationRequest"],
+      "reference_solution": {
+        "answer": {"meets_criteria": true, "basis": "IHC confirms loss of MLH1 and PMS2 expression (dMMR), consistent with MSI-High; patient has progressed on prior chemotherapy with no satisfactory alternative documented"},
+        "required_calls": ["GET /DiagnosticReport?patient=example-patient-015", "GET /Condition?patient=example-patient-015", "GET /MedicationRequest?patient=example-patient-015"],
+        "rationale": "Tests correct recognition that dMMR-by-IHC is an accepted equivalent pathway to MSI-High-by-PCR/NGS for this tissue-agnostic indication — an agent that only pattern-matches the literal string 'MSI-H' would incorrectly deny a chart that documents dMMR instead."
+      },
+      "scoring": {"method": "checklist", "checklist": ["correctly confirms criteria met", "recognizes dMMR/IHC as an equivalent pathway to MSI-High", "confirms progression on prior therapy is documented"], "weight_tool_trace": 0.25}
+    },
+    {
+      "id": "pab_016",
+      "category": "genomic_biomarker_necessity",
+      "difficulty": "medium",
+      "payer_context": {
+        "payer_name": "SyntheticPayer Medicare Advantage",
+        "policy_id": "MN-MSIH-PEMBRO-004",
+        "policy_text": "Pembrolizumab is covered for unresectable or metastatic solid tumors when MSI-High status (by PCR/NGS) or dMMR status (by IHC loss of MLH1/MSH2/MSH6/PMS2) is documented, following progression on prior therapy with no satisfactory alternative."
+      },
+      "instruction": "Same request, different patient: chart shows the tumor is microsatellite stable (MSS) on PCR testing. Does this patient meet criteria for pembrolizumab under MN-MSIH-PEMBRO-004?",
+      "patient_ref": "example-patient-016",
+      "required_fhir_resources": ["DiagnosticReport", "Condition", "MedicationRequest"],
+      "reference_solution": {
+        "answer": {"meets_criteria": false, "basis": "PCR testing confirms microsatellite stable (MSS) status; the tissue-agnostic indication requires MSI-High or dMMR status, which is not present here"},
+        "required_calls": ["GET /DiagnosticReport?patient=example-patient-016", "GET /Condition?patient=example-patient-016", "GET /MedicationRequest?patient=example-patient-016"],
+        "rationale": "Paired negative to pab_015 — tests that the agent doesn't approve any progressed solid tumor for pembrolizumab under this indication without confirming the specific biomarker is actually positive rather than merely tested."
+      },
+      "scoring": {"method": "checklist", "checklist": ["correctly denies criteria are met", "correctly cites the MSS result", "does not approve based on disease progression alone"], "weight_tool_trace": 0.25}
+    },
+    {
+      "id": "pab_017",
+      "category": "genomic_biomarker_necessity",
+      "difficulty": "medium",
+      "payer_context": {
+        "payer_name": "SyntheticPayer Commercial PPO",
+        "policy_id": "MN-KRASG12C-005",
+        "policy_text": "Sotorasib is covered for locally advanced or metastatic NSCLC with a KRAS G12C mutation confirmed by an FDA-approved companion diagnostic, in patients who have received at least one prior line of systemic therapy."
+      },
+      "instruction": "Patient has metastatic NSCLC and progressed after first-line platinum doublet chemotherapy. Companion diagnostic report confirms KRAS p.G12C. Does the patient meet criteria for sotorasib under MN-KRASG12C-005?",
+      "patient_ref": "example-patient-017",
+      "required_fhir_resources": ["Condition", "Observation", "MedicationRequest"],
+      "reference_solution": {
+        "answer": {"meets_criteria": true, "basis": "the FDA-approved companion diagnostic confirms a KRAS p.G12C mutation, and the patient has received one prior line of systemic therapy"},
+        "required_calls": ["GET /Condition?patient=example-patient-017", "GET /Observation?patient=example-patient-017&code=KRAS", "GET /MedicationRequest?patient=example-patient-017"],
+        "rationale": "Tests correct application of both the variant-specificity requirement (G12C specifically, the only codon-12 substitution with a targetable cysteine) and the prior-line-of-therapy requirement — sotorasib is not approved first-line."
+      },
+      "scoring": {"method": "checklist", "checklist": ["correctly confirms criteria met", "cites the specific G12C variant and companion diagnostic", "confirms the prior-therapy-line requirement is satisfied"], "weight_tool_trace": 0.25}
+    },
+    {
+      "id": "pab_018",
+      "category": "genomic_biomarker_necessity",
+      "difficulty": "hard",
+      "payer_context": {
+        "payer_name": "SyntheticPayer Commercial PPO",
+        "policy_id": "MN-KRASG12C-005",
+        "policy_text": "Sotorasib is covered for locally advanced or metastatic NSCLC with a KRAS G12C mutation confirmed by an FDA-approved companion diagnostic, in patients who have received at least one prior line of systemic therapy."
+      },
+      "instruction": "Same drug request, different patient: the companion diagnostic report confirms KRAS p.G12D (not G12C), and the patient has not yet received any systemic therapy. Does the patient meet criteria for sotorasib under MN-KRASG12C-005?",
+      "patient_ref": "example-patient-018",
+      "required_fhir_resources": ["Condition", "Observation", "MedicationRequest"],
+      "reference_solution": {
+        "answer": {"meets_criteria": false, "basis": "the documented variant is KRAS G12D, a different codon-12 substitution that lacks the cysteine sotorasib covalently targets; additionally, no prior systemic therapy has been given, and sotorasib is not approved first-line"},
+        "required_calls": ["GET /Condition?patient=example-patient-018", "GET /Observation?patient=example-patient-018&code=KRAS", "GET /MedicationRequest?patient=example-patient-018"],
+        "rationale": "Paired negative to pab_017, deliberately layering two independent disqualifying facts (wrong variant AND wrong treatment line) — tests whether the agent catches both rather than pattern-matching on 'KRAS mutation' plus 'NSCLC' and approving."
+      },
+      "scoring": {"method": "checklist", "checklist": ["correctly denies criteria are met", "identifies G12D as distinct from G12C rather than just 'a KRAS mutation'", "also flags the missing prior-therapy-line requirement"], "weight_tool_trace": 0.2}
+    },
+    {
+      "id": "pab_019",
+      "category": "genomic_biomarker_necessity",
+      "difficulty": "hard",
+      "payer_context": {
+        "payer_name": "SyntheticPayer HMO",
+        "policy_id": "MN-EGFR-TARGETED-009",
+        "policy_text": "Osimertinib is covered as first-line therapy for NSCLC with a classical EGFR sensitizing mutation (exon 19 deletion or L858R). Amivantamab is covered for NSCLC with an EGFR exon 20 insertion mutation following progression on platinum-based chemotherapy. These are non-interchangeable indications based on the specific EGFR alteration documented."
+      },
+      "instruction": "Patient has newly diagnosed metastatic NSCLC. The molecular report documents an EGFR exon 20 insertion mutation. The oncologist requests first-line osimertinib. Does the chart support this request under MN-EGFR-TARGETED-009, and if not, what would be appropriate?",
+      "patient_ref": "example-patient-019",
+      "required_fhir_resources": ["DiagnosticReport", "Condition", "MedicationRequest"],
+      "reference_solution": {
+        "answer": {"meets_criteria": false, "basis": "the documented alteration is an EGFR exon 20 insertion, not a classical exon 19 deletion or L858R mutation; exon 20 insertions are structurally resistant to osimertinib and are not covered under this indication. Amivantamab is the appropriate covered option, but only after progression on platinum-based chemotherapy, not first-line."},
+        "required_calls": ["GET /DiagnosticReport?patient=example-patient-019", "GET /Condition?patient=example-patient-019", "GET /MedicationRequest?patient=example-patient-019"],
+        "rationale": "Exon 20 insertions are a structurally distinct EGFR alteration that does not respond to osimertinib despite both being casually described as 'EGFR mutations' in chart language — approving first-line osimertinib here would both fail clinically and be denied on audit, making this one of the highest-value traps in oncology prior auth."
+      },
+      "scoring": {"method": "checklist", "checklist": ["denies the osimertinib request", "correctly identifies the exon 20 insertion as the specific reason, not a vague 'wrong mutation'", "correctly notes amivantamab requires prior platinum chemotherapy rather than being first-line either"], "weight_tool_trace": 0.25}
+    },
+    {
+      "id": "pab_020",
+      "category": "genomic_biomarker_necessity",
+      "difficulty": "medium",
+      "payer_context": {
+        "payer_name": "SyntheticPayer HMO",
+        "policy_id": "MN-EGFR-TARGETED-009",
+        "policy_text": "Osimertinib is covered as first-line therapy for NSCLC with a classical EGFR sensitizing mutation (exon 19 deletion or L858R). Amivantamab is covered for NSCLC with an EGFR exon 20 insertion mutation following progression on platinum-based chemotherapy. These are non-interchangeable indications based on the specific EGFR alteration documented."
+      },
+      "instruction": "Different patient, same drug request: the molecular report documents an EGFR exon 19 deletion. This is a treatment-naive, newly diagnosed metastatic NSCLC patient. Does the chart support first-line osimertinib under MN-EGFR-TARGETED-009?",
+      "patient_ref": "example-patient-020",
+      "required_fhir_resources": ["DiagnosticReport", "Condition", "MedicationRequest"],
+      "reference_solution": {
+        "answer": {"meets_criteria": true, "basis": "an exon 19 deletion is a classical EGFR sensitizing mutation explicitly covered for first-line osimertinib"},
+        "required_calls": ["GET /DiagnosticReport?patient=example-patient-020", "GET /Condition?patient=example-patient-020", "GET /MedicationRequest?patient=example-patient-020"],
+        "rationale": "Paired positive to pab_019 — confirms the agent isn't reflexively denying every EGFR-mutation osimertinib request after seeing the exon 20 trap case; classical mutations really are first-line appropriate."
+      },
+      "scoring": {"method": "checklist", "checklist": ["correctly confirms criteria met", "correctly distinguishes exon 19 deletion from exon 20 insertion by name"], "weight_tool_trace": 0.25}
+    },
+    {
+      "id": "pab_021",
+      "category": "genomic_biomarker_necessity",
+      "difficulty": "medium",
+      "payer_context": {
+        "payer_name": "SyntheticPayer Commercial PPO",
+        "policy_id": "MN-BRCA-PARP-011",
+        "policy_text": "Olaparib maintenance is covered for newly diagnosed advanced epithelial ovarian cancer in complete or partial response to first-line platinum-based chemotherapy, when a germline or somatic BRCA1/2 pathogenic or likely pathogenic variant is documented via an FDA-approved companion diagnostic. Variants of uncertain significance do not satisfy this criterion."
+      },
+      "instruction": "Patient completed first-line platinum chemotherapy for newly diagnosed advanced ovarian cancer and is in complete response. A germline testing report is on file. Does the patient meet criteria for olaparib maintenance under MN-BRCA-PARP-011?",
+      "patient_ref": "example-patient-021",
+      "required_fhir_resources": ["DiagnosticReport", "Condition", "MedicationRequest", "Observation"],
+      "reference_solution": {
+        "answer": {"meets_criteria": true, "basis": "germline testing confirms a pathogenic BRCA1 variant, and the patient is in complete response to first-line platinum chemotherapy for newly diagnosed advanced ovarian cancer"},
+        "required_calls": ["GET /DiagnosticReport?patient=example-patient-021", "GET /Condition?patient=example-patient-021", "GET /MedicationRequest?patient=example-patient-021", "GET /Observation?patient=example-patient-021"],
+        "rationale": "A straightforward positive case included deliberately (per categories.md guidance) so scoring isn't biased toward reflexive denial once agents learn genomic tasks in this bank often contain a trap."
+      },
+      "scoring": {"method": "checklist", "checklist": ["correctly confirms criteria met", "cites the pathogenic classification specifically, not just 'BRCA finding'", "confirms the platinum-response requirement"], "weight_tool_trace": 0.25}
+    },
+    {
+      "id": "pab_022",
+      "category": "genomic_biomarker_necessity",
+      "difficulty": "hard",
+      "payer_context": {
+        "payer_name": "SyntheticPayer Commercial PPO",
+        "policy_id": "MN-BRCA-PARP-011",
+        "policy_text": "Olaparib maintenance is covered for newly diagnosed advanced epithelial ovarian cancer in complete or partial response to first-line platinum-based chemotherapy, when a germline or somatic BRCA1/2 pathogenic or likely pathogenic variant is documented via an FDA-approved companion diagnostic. Variants of uncertain significance do not satisfy this criterion."
+      },
+      "instruction": "Same drug request, different patient: the germline testing report classifies the BRCA1 finding as a variant of uncertain significance (VUS), not pathogenic or likely pathogenic. The patient is otherwise in complete response to first-line platinum chemotherapy. Does the patient meet criteria for olaparib maintenance under MN-BRCA-PARP-011?",
+      "patient_ref": "example-patient-022",
+      "required_fhir_resources": ["DiagnosticReport", "Condition", "MedicationRequest", "Observation"],
+      "reference_solution": {
+        "answer": {"meets_criteria": false, "basis": "the BRCA1 finding is classified as a variant of uncertain significance (VUS), not a pathogenic or likely pathogenic variant; a VUS does not satisfy the biomarker requirement regardless of platinum response"},
+        "required_calls": ["GET /DiagnosticReport?patient=example-patient-022", "GET /Condition?patient=example-patient-022", "GET /MedicationRequest?patient=example-patient-022", "GET /Observation?patient=example-patient-022"],
+        "rationale": "Paired negative to pab_021 — tests the single most consequential real error in this category: treating 'a BRCA finding exists' as sufficient without checking the ACMG/AMP classification. A VUS is explicitly not actionable for PARP-inhibitor eligibility, and platinum response alone cannot substitute for it."
+      },
+      "scoring": {"method": "checklist", "checklist": ["correctly denies criteria are met", "explicitly names VUS, not pathogenic/likely pathogenic, as the reason", "does not approve based on platinum response alone"], "weight_tool_trace": 0.25}
     }
   ]
 }

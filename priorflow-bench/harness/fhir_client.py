@@ -12,7 +12,7 @@ scored on the same instrumentation.
 from __future__ import annotations
 import time
 import requests
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 
 @dataclass
@@ -26,8 +26,7 @@ class CallLogEntry:
 class FHIRClient:
     def __init__(self, base_url: str = "http://localhost:8080/fhir"):
         self.base_url = base_url.rstrip("/")
-        self.call_log: list[CallLogEntry] = field(default_factory=list)
-        self.call_log = []
+        self.call_log: list[CallLogEntry] = []
 
     def _request(self, method: str, path: str, **kwargs) -> dict:
         url = f"{self.base_url}/{path.lstrip('/')}"

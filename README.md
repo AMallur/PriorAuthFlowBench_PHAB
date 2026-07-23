@@ -28,16 +28,25 @@ priorflow-bench/
 ├── docker-compose.yml         # HAPI FHIR JPA server (the "virtual EHR")
 ├── requirements.txt
 ├── scripts/
-│   └── generate_synthetic_patients.sh   # Synthea invocation w/ oncology modules
+│   ├── generate_synthetic_patients.sh   # Synthea invocation w/ oncology modules (bulk, unlabeled pool)
+│   └── load_task_bank_patients.sh       # (re)generates + loads the 22 task-specific patients below
+├── synthetic_data/
+│   ├── fhir_resources.py        # minimal FHIR R4 resource builders
+│   ├── patient_specs.py         # declarative per-patient clinical facts (one per seed task)
+│   ├── generate_bundles.py      # builds a FHIR transaction Bundle per patient from the specs
+│   └── bundles/                 # generated output (regenerate before loading -- dates are relative to "now")
 ├── tasks/
 │   ├── schema.json             # JSON Schema all tasks must validate against
-│   ├── task_bank.json           # the actual task set (12 seed tasks, 4 categories)
+│   ├── task_bank.json           # the actual task set (22 seed tasks, 7 categories)
 │   └── categories.md            # task taxonomy + how to write new tasks
 ├── harness/
 │   ├── fhir_client.py           # thin FHIR REST wrapper that LOGS every call
 │   ├── agent_interface.py       # abstract Agent + a reference Claude-based agent
 │   ├── controller.py            # runs task set against an agent, saves transcripts
-│   └── scorer.py                # deterministic scoring: tool-call match + checklist
+│   └── scorer.py                # tool-call trace match + LLM-judge checklist scoring
+├── tests/
+│   ├── test_scorer.py                     # scorer/LLM-judge wiring (fake client, no API key needed)
+│   └── test_patient_data_consistency.py   # checks generated patient bundles back up task_bank.json
 ├── docs/
 │   └── METHODOLOGY.md           # paper-style write-up: data, task design, limitations
 └── eval_results/                # output transcripts + score reports land here
@@ -49,14 +58,20 @@ priorflow-bench/
 # 1. Stand up the virtual EHR
 docker compose up -d
 
-# 2. Generate synthetic oncology patients (requires Java + Synthea jar, see scripts/)
+# 2. Load the 22 hand-crafted patients the seed task bank depends on
+#    (regenerates them fresh, since some tasks encode relative-date facts)
+bash scripts/load_task_bank_patients.sh
+
+# 2b. Optionally, also generate a larger unlabeled Synthea population
+#     (requires Java + Synthea jar) for noise/scale testing
 bash scripts/generate_synthetic_patients.sh
 
-# 3. Load patients into the FHIR server (script prints the upload command)
-
-# 4. Run the eval
+# 3. Run the eval
 pip install -r requirements.txt
 python harness/controller.py --agent reference_claude_agent --tasks tasks/task_bank.json
+
+# 4. Run the test suite (patient-data consistency + scorer unit tests)
+pytest tests/
 ```
 
 ## 4. Why this is worth doing (beyond an internal eval)
@@ -65,6 +80,6 @@ An internal "does my agent work" test is worth something to you. A published, ve
 
 ## 5. What's honest about the scope right now
 
-- 12 seed tasks, not 300. MedAgentBench had a research team + physicians; you're one person. Task count should grow slowly and only with real domain rigor, not padded for volume.
+- 22 seed tasks, not 300. MedAgentBench had a research team + physicians; you're one person. Task count should grow slowly and only with real domain rigor, not padded for volume.
 - Synthea data, not a real data warehouse. This is the correct and only responsible substitute without an IRB/DUA — do not attempt to source real PHI for this.
 - No inter-rater reliability step yet (MedAgentBench likely had multiple physicians cross-check tasks). Solo, note this explicitly as a limitation rather than skip mentioning it.

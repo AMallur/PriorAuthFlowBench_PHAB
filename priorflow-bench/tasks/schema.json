@@ -20,7 +20,8 @@
         "missing_documentation",
         "step_therapy_check",
         "appeal_drafting",
-        "formulary_status"
+        "formulary_status",
+        "genomic_biomarker_necessity"
       ]
     },
     "difficulty": {

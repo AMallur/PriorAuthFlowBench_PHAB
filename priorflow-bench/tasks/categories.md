@@ -1,6 +1,6 @@
 # Task Taxonomy & Authoring Guide
 
-PriorFlow-Bench organizes tasks into six categories. Each seed task lives in `task_bank.json` and validates against `schema.json`.
+PriorFlow-Bench organizes tasks into seven categories. Each seed task lives in `task_bank.json` and validates against `schema.json`.
 
 ## Categories
 
@@ -10,6 +10,7 @@ PriorFlow-Bench organizes tasks into six categories. Each seed task lives in `ta
 4. **step_therapy_check** — Has the required prior line of therapy been tried, or does a documented exception (often a genomic marker) bypass it? This category is the highest-value one for an *oncology-specific* benchmark, since generalist prior-auth tools are rarely built with molecular-marker exceptions in mind.
 5. **appeal_drafting** — Given a denial reason and the actual chart, draft a grounded appeal. Graded on whether every factual claim in the letter is traceable to a retrieved FHIR resource — hallucinated clinical detail in an appeal letter is the single most reputationally costly failure mode a real product could have.
 6. **formulary_status** — Tier, preference, and step-through logic (including biosimilar-preference), including questions phrased to invite a plausible misreading.
+7. **genomic_biomarker_necessity** — Given a specific molecular test result, does it actually satisfy the FDA-label/companion-diagnostic criterion for the requested targeted therapy? The recurring hard cases: (a) *fusion vs. mutation vs. amplification* confusion (e.g. an NTRK point mutation is not an NTRK fusion), (b) *codon/variant specificity* (KRAS G12C-only drugs do not extend to G12D/G12V), (c) *germline vs. somatic* scope differences between indications for the same drug, (d) *VUS is not a positive result* (a variant of uncertain significance must not be treated as pathogenic), and (e) *label currency* — a drug that was approved and later voluntarily withdrawn, or an accelerated approval that was subsequently narrowed, is a deliberate stale-knowledge trap for agents with an outdated internal prior. This category requires the task author to verify claims against real FDA approval records and pivotal trial data (not internal guesswork), even though the payer policy wrapper stays synthetic — the underlying biomarker-therapy link must be real, because inventing molecular biology would make the benchmark actively harmful to rely on.
 
 ## Authoring rules (write new tasks the way MedAgentBench's physicians did)
 
