@@ -19,13 +19,13 @@ from fhir_client import FHIRClient
 
 class Agent(ABC):
     @abstractmethod
-    def run_task(self, instruction: str, payer_context: dict, fhir: FHIRClient) -> dict:
+    def run_task(self, instruction: str, payer_context: dict, patient_id: str, fhir: FHIRClient) -> dict:
         """
-        Given a task instruction and payer context, use `fhir` to gather
-        whatever evidence is needed, then return a structured answer dict.
-        The FHIRClient passed in is fresh (empty call log) for this task,
-        so fhir.trace_as_strings() after this call reflects only this task's
-        queries.
+        Given a task instruction, payer context, and the patient this task
+        is scoped to, use `fhir` to gather whatever evidence is needed, then
+        return a structured answer dict. The FHIRClient passed in is fresh
+        (empty call log) for this task, so fhir.trace_as_strings() after
+        this call reflects only this task's queries.
         """
         raise NotImplementedError
 
@@ -43,8 +43,19 @@ class ReferenceClaudeAgent(Agent):
 
     TOOLS = [
         {
+            "name": "get_patient",
+            "description": "Directly read the Patient resource by its id. Use this for the Patient resource itself -- it has no 'patient' search parameter (that only exists on resources that reference a subject, like Condition or Observation).",
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "patient_id": {"type": "string"}
+                },
+                "required": ["patient_id"]
+            }
+        },
+        {
             "name": "fhir_search",
-            "description": "Search FHIR resources. Use resource_type (e.g. 'Condition', 'Observation', 'MedicationRequest', 'DiagnosticReport', 'Coverage', 'Encounter', 'Procedure') and params (dict of query params, typically at least {'patient': <id>}).",
+            "description": "Search FHIR resources that reference a subject (e.g. 'Condition', 'Observation', 'MedicationRequest', 'DiagnosticReport', 'Coverage', 'Encounter', 'Procedure'). Use resource_type and params (dict of query params, typically at least {'patient': <id>}). Do not use this for 'Patient' itself -- use get_patient instead.",
             "input_schema": {
                 "type": "object",
                 "properties": {
@@ -71,24 +82,25 @@ class ReferenceClaudeAgent(Agent):
         self.model = model
         self.max_turns = max_turns
 
-    def run_task(self, instruction: str, payer_context: dict, fhir: FHIRClient) -> dict:
+    def run_task(self, instruction: str, payer_context: dict, patient_id: str, fhir: FHIRClient) -> dict:
         import anthropic
         client = anthropic.Anthropic()
 
         system = (
             "You are a prior-authorization review agent for oncology infusion "
-            "therapy. You will be given an instruction and the relevant payer "
-            "policy text. Use the fhir_search tool to gather exactly the "
-            "evidence needed from the patient's chart, then call submit_answer "
-            "with a structured JSON answer. Do not claim a criterion is met "
-            "unless you have directly observed evidence for it in a FHIR "
-            "resource you queried. If evidence is missing or ambiguous, say so "
-            "explicitly rather than guessing."
+            "therapy. You will be given an instruction, the relevant payer "
+            "policy text, and the patient's FHIR id. Use get_patient and "
+            "fhir_search to gather exactly the evidence needed from the "
+            "patient's chart, then call submit_answer with a structured JSON "
+            "answer. Do not claim a criterion is met unless you have directly "
+            "observed evidence for it in a FHIR resource you queried. If "
+            "evidence is missing or ambiguous, say so explicitly rather than "
+            "guessing."
         )
         user_msg = (
             f"Payer policy context: {json.dumps(payer_context)}\n\n"
             f"Task: {instruction}\n\n"
-            f"Patient FHIR id: (use the patient param already scoped for this task)"
+            f"Patient FHIR id: {patient_id}"
         )
 
         messages = [{"role": "user", "content": user_msg}]
@@ -118,6 +130,17 @@ class ReferenceClaudeAgent(Agent):
                         "type": "tool_result",
                         "tool_use_id": block.id,
                         "content": "answer recorded"
+                    })
+                elif block.name == "get_patient":
+                    try:
+                        result = fhir.get_patient(block.input["patient_id"])
+                        content = json.dumps(result)[:4000]
+                    except Exception as e:
+                        content = f"ERROR: {e}"
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": content
                     })
                 elif block.name == "fhir_search":
                     try:

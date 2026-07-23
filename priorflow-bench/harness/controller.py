@@ -46,6 +46,7 @@ def run(agent_name: str, tasks_path: str, fhir_base_url: str, out_path: str):
             agent_output = agent.run_task(
                 instruction=task["instruction"],
                 payer_context=task.get("payer_context", {}),
+                patient_id=task["patient_ref"],
                 fhir=fhir,
             )
             error = None

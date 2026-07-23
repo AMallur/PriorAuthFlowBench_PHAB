@@ -72,6 +72,10 @@ python harness/controller.py --agent reference_claude_agent --tasks tasks/task_b
 
 # 4. Run the test suite (patient-data consistency + scorer unit tests)
 pytest tests/
+
+# 5. (Optional) Live-server smoke test -- confirms real FHIR data matches
+#    every task's claims, independent of any LLM agent/API key
+python scripts/oracle_smoke_test.py
 ```
 
 ## 4. Why this is worth doing (beyond an internal eval)
